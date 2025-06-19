@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Bolão - Enviar Palpites</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    .palpite-input { width: 5rem; text-align: center; border-radius: 0.375rem; }
+  </style>
+</head>
+<body class="bg-gray-900 text-gray-200 min-h-screen flex flex-col items-center justify-center">
+  <div class="bg-gray-800 rounded-lg p-8 shadow-lg w-full max-w-2xl">
+    <h1 class="text-2xl font-bold mb-4 text-center text-white">Envie seus Palpites!</h1>
+    <div class="mb-4">
+      <label for="participant" class="font-semibold">Nome:</label>
+      <select id="participant" class="ml-2 p-2 rounded text-gray-900">
+        <option>Galego</option>
+        <option>ANDRÉ</option>
+        <option>ROBERTO</option>
+        <option>IAGO</option>
+        <option>YASSER</option>
+        <option>Walber</option>
+        <option>Kleiton</option>
+        <option>Oséas</option>
+      </select>
+    </div>
+    <form id="palpites-form" class="space-y-2">
+      <!-- Os jogos serão renderizados aqui -->
+    </form>
+    <button id="save-btn" class="mt-4 px-8 py-2 bg-green-600 rounded font-bold text-white hover:bg-green-700 w-full">Salvar Palpites</button>
+    <div id="msg" class="mt-4 text-center"></div>
+  </div>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+
+    // Config do seu projeto Firebase
+    const firebaseConfig = {
+      apiKey: "AIzaSyD2EKVkjJaCEFXeZYN6p0XTC6BmpDUrdBw",
+      authDomain: "bolaocrazys.firebaseapp.com",
+      projectId: "bolaocrazys",
+      storageBucket: "bolaocrazys.firebasestorage.app",
+      messagingSenderId: "912073059842",
+      appId: "1:912073059842:web:20846e2ba7a1e907f8411b",
+      measurementId: "G-FST2TL48V4"
+    };
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+    await signInAnonymously(auth);
+
+    const games = [
+      { grupo: 'A', jogo: 'Palmeiras x Al Ahly', horario: '13h' },
+      { grupo: 'A', jogo: 'Inter Miami x Porto', horario: '16h' },
+      { grupo: 'B', jogo: 'Seattle x Atlético', horario: '19h' },
+      { grupo: 'B', jogo: 'PSG x Botafogo', horario: '22h' },
+      { grupo: 'C', jogo: 'Benfica x Auckland', horario: '13h' },
+      { grupo: 'C', jogo: 'Bayern x Boca', horario: '22h' },
+      { grupo: 'D', jogo: 'Flamengo x Chelsea', horario: '15h' },
+      { grupo: 'D', jogo: 'LAFC x Espérance', horario: '19h' },
+      { grupo: 'E', jogo: 'Inter x Urawa Red', horario: '16h' },
+      { grupo: 'E', jogo: 'River x Monterrey', horario: '22h' },
+      { grupo: 'F', jogo: 'Sundows x Dortmund', horario: '13h' },
+      { grupo: 'F', jogo: 'Fluminense x Ulsan', horario: '19h' },
+      { grupo: 'G', jogo: 'Juventus x WAC', horario: '13h' },
+      { grupo: 'G', jogo: 'Man City x Al-Ain', horario: '22h' },
+      { grupo: 'H', jogo: 'Real Madrid x Pachuca', horario: '16h' },
+      { grupo: 'H', jogo: 'RB Salzburg x Al Hilal', horario: '19h' }
+    ];
+
+    const form = document.getElementById('palpites-form');
+    const participantSelect = document.getElementById('participant');
+    const saveBtn = document.getElementById('save-btn');
+    const msg = document.getElementById('msg');
+
+    // Renderiza inputs
+    function renderForm(palpites = []) {
+      form.innerHTML = '';
+      games.forEach((game, idx) => {
+        form.innerHTML += `
+          <div class="flex items-center gap-3">
+            <div class="w-28">${game.grupo}</div>
+            <div class="flex-1">${game.jogo} <span class="text-gray-400">(${game.horario})</span></div>
+            <input type="text" maxlength="5" required id="palpite-${idx}" class="palpite-input p-2" placeholder="Ex: 2x1" value="${palpites[idx]||''}">
+          </div>
+        `;
+      });
+    }
+
+    // Carrega palpites salvos do participante ao trocar nome
+    async function loadPalpites() {
+      msg.textContent = '';
+      const nome = participantSelect.value;
+      const docRef = doc(db, 'bolao', 'palpites');
+      const docSnap = await getDoc(docRef);
+      let palpites = [];
+      if (docSnap.exists() && docSnap.data().palpites && docSnap.data().palpites[nome]) {
+        palpites = docSnap.data().palpites[nome];
+      }
+      renderForm(palpites);
+    }
+
+    participantSelect.addEventListener('change', loadPalpites);
+    renderForm();
+    loadPalpites();
+
+    saveBtn.onclick = async () => {
+      const nome = participantSelect.value;
+      const palpites = [];
+      for (let i = 0; i < games.length; ++i) {
+        palpites.push(document.getElementById('palpite-' + i).value.trim());
+      }
+      // Salva no Firestore
+      const docRef = doc(db, 'bolao', 'palpites');
+      // Atualiza só o participante
+      let data = {};
+      data[`palpites.${nome}`] = palpites;
+      await setDoc(docRef, data, { merge: true });
+      msg.textContent = 'Palpites salvos!';
+      msg.className = 'text-green-400 mt-4 text-center';
+    };
+  </script>
+</body>
+</html>
